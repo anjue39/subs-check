@@ -1,6 +1,7 @@
 name: diy-release
 
 on:
+  # 纯手动触发
   workflow_dispatch: 
 
 permissions:
@@ -12,29 +13,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # 1. 动态生成唯一的 Tag
-      - name: Auto Tag
-        id: create_tag
+      - name: Tag
+        # 修复逻辑：增加 -f 强制覆盖已有标签
         run: |
-          NEW_TAG="v1.0.${{ github.run_number }}-$(date +'%Y%m%d')"
-          echo "tag_name=$NEW_TAG" >> $GITHUB_OUTPUT
-          git config --global user.email "action@github.com"
-          git config --global user.name "GitHub Action"
-          git tag -a "$NEW_TAG" -m "Release $NEW_TAG"
-          git push origin "$NEW_TAG"
+          git fetch --force --tags
+          if [ -z "$(git tag --points-at HEAD)" ]; then
+            echo "正在强制更新标签 v0.0.1-latest"
+            git config --global user.email "action@github.com"
+            git config --global user.name "GitHub Action"
+            git tag -f v0.0.1-latest
+            git push origin v0.0.1-latest -f
+          fi
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v4
         with:
           go-version: stable
 
-      # 2. 运行 GoReleaser (生成本地二进制版本)
       - name: Release
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v4
         with:
           distribution: goreleaser
           version: latest
@@ -42,14 +43,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. 核心修复：使用 GitHub 官方 CLI 只保留最近 5 个 Release 和 Tag
-      - name: Cleanup Old Releases
+      - name: Cleanup
+        # 简单高效：只保留最近 5 个 Release，其余删除
         run: |
-          # 获取所有 release 的列表，跳过前 5 个最新的，删除剩下的
-          gh release list --limit 100 | tail -n +6 | while read -r line; do
-            tag=$(echo "$line" | awk '{print $1}')
-            echo "正在删除旧 Release 和 Tag: $tag"
-            gh release delete "$tag" --yes --cleanup-tag
-          done
+          gh release list --limit 100 | tail -n +6 | awk '{print $1}' | xargs -I {} gh release delete {} --yes --cleanup-tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
