@@ -1,6 +1,7 @@
 name: diy-release
 
 on:
+  # 纯手动触发
   workflow_dispatch: 
 
 permissions:
@@ -17,17 +18,23 @@ jobs:
           fetch-depth: 0
 
       - name: Tag
-        # 逻辑：不再死守 v0.0.1，每次生成一个唯一的动态标签
+        # 核心逻辑：生成唯一日期版本，同时强制更新 latest
         run: |
           git fetch --force --tags
-          # 生成一个基于日期和构建号的唯一标签，例如 v1.0.1-20240320
+          # 生成动态版本号 (例如 v1.0.8-20251231)
           NEW_TAG="v1.0.${{ github.run_number }}-$(date +'%Y%m%d')"
-          echo "正在创建新版本标签: $NEW_TAG"
+          echo "正在生成版本: $NEW_TAG"
           
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
+          
+          # 1. 推送带日期的唯一标签（让 goreleaser 生成 release 存档）
           git tag $NEW_TAG
           git push origin $NEW_TAG
+
+          # 2. 强制覆盖 latest 标签（让 docker pull latest 永远拉到最新）
+          git tag -f latest
+          git push origin latest -f
 
       - name: Setup Go
         uses: actions/setup-go@v4
@@ -39,12 +46,13 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
+          # --clean 确保每次构建都是全新的
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cleanup
-        # 核心逻辑：只保留最近 5 个版本，其余的 Release 和 Tag 全部自动物理删除
+        # 自动清理：保留最新的 5 个 Release，其他的物理删除（含 Tag）
         run: |
           gh release list --limit 100 | tail -n +6 | awk '{print $1}' | xargs -I {} gh release delete {} --yes --cleanup-tag
         env:
