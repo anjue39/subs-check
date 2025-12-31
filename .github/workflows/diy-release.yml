@@ -1,7 +1,7 @@
-name: diy-release
+name: Release
 
 on:
-  # 彻底去掉 push 和 tags 触发，仅保留手动触发
+  # 纯手动触发
   workflow_dispatch: 
 
 permissions:
@@ -16,20 +16,30 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
+
       - name: Tag
-        run: git fetch --force --tags
-        
+        # 修复逻辑：如果当前没有 tag，则自动创建一个默认 tag 防止 goreleaser 报错
+        run: |
+          git fetch --force --tags
+          if [ -z "$(git tag --points-at HEAD)" ]; then
+            echo "未发现标签，正在创建默认标签 v0.0.1-latest"
+            git config --global user.email "action@github.com"
+            git config --global user.name "GitHub Action"
+            git tag v0.0.1-latest
+            git push origin v0.0.1-latest
+          fi
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: stable
-          
+
       - name: Release
         uses: goreleaser/goreleaser-action@v4
         with:
           distribution: goreleaser
           version: latest
+          # 使用 --snapshot 可以在没有正式 release 的情况下生成产物，或者使用下面默认的 release
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
