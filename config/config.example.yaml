@@ -74,6 +74,8 @@ filter:
   # - "GM"                       # 保留解锁 Gemini 的节点
   # - "D\\+"                     # 保留解锁 Disney+ 的节点
   # - "YT-"                      # 保留解锁 YouTube Premium 的节点
+  # - "TK-"                      # 新增：保留解锁 TikTok 的节点 (匹配 TK-US, TK-HK 等)
+  # - "GK"                       # 新增：保留解锁 Grok (xAI) 的节点
 
 # 是否开启流媒体检测，其中IP欺诈依赖重命名
 media-check: false
@@ -87,6 +89,7 @@ platforms:
   - disney
   - openai
   - gemini
+  - grok
 
 # 保留之前测试成功的节点
 # 如果为true，则保留之前测试成功的节点，这样就不会因为上游链接更新，导致可用的节点被清除掉
