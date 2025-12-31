@@ -33,6 +33,7 @@ type Result struct {
 	Google     bool
 	Cloudflare bool
 	Disney     bool
+	Grok       bool
 	Gemini     bool
 	TikTok     string
 	IP         string
@@ -247,6 +248,10 @@ func (pc *ProxyChecker) checkProxy(proxy map[string]any) *Result {
 				if ok, _ := platform.CheckDisney(mediaClient); ok {
 					res.Disney = true
 				}
+			case "grok":  // 新增
+			    if ok, _ := platform.CheckGrok(httpClient.Client); ok {
+			        res.Grok = true
+			    }
 			case "gemini":
 				if ok, _ := platform.CheckGemini(mediaClient); ok {
 					res.Gemini = true
@@ -307,8 +312,8 @@ func (pc *ProxyChecker) updateProxyName(res *Result, httpClient *ProxyClient, sp
 	}
 
 	if config.GlobalConfig.MediaCheck {
-		// 移除已有的标记（IPRisk和平台标记）
-		name = regexp.MustCompile(`\s*\|(?:NF|D\+|GPT⁺|GPT|GM|YT-[^|]+|TK-[^|]+|\d+%)`).ReplaceAllString(name, "")
+	    // 关键修正：GK 后面加 \b 确保边界，防止正则误伤
+	    name = regexp.MustCompile(`\s*\|(?:NF|D\+|GPT⁺|GPT|GM|GK\b|YT-[^|]+|TK-[^|]+|\d+%)`).ReplaceAllString(name, "")
 	}
 
 	// 按用户输入顺序定义
@@ -328,6 +333,10 @@ func (pc *ProxyChecker) updateProxyName(res *Result, httpClient *ProxyClient, sp
 			if res.Disney {
 				tags = append(tags, "D+")
 			}
+		case "grok":  // 新增
+		    if res.Grok {
+		        tags = append(tags, "GK")  // 大写 GK，与 GPT⁺、NF 等风格统一
+		    }
 		case "gemini":
 			if res.Gemini {
 				tags = append(tags, "GM")
