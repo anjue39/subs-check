@@ -1,44 +1,39 @@
-name: diy-release
+name: Manual Build and Push Docker Image
+
 on:
-  # 纯手动触发
+  # 移除 push 触发器，仅保留手动触发
   workflow_dispatch: 
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 jobs:
-  releaser:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Tag
-        # 修复逻辑：如果当前没有 tag，则自动创建一个默认 tag 防止 goreleaser 报错
-        run: |
-          git fetch --force --tags
-          if [ -z "$(git tag --points-at HEAD)" ]; then
-            echo "未发现标签，正在创建默认标签 v0.0.1-latest"
-            git config --global user.email "action@github.com"
-            git config --global user.name "GitHub Action"
-            git tag v0.0.1-latest
-            git push origin v0.0.1-latest
-          fi
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: stable
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Release
-        uses: goreleaser/goreleaser-action@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          distribution: goreleaser
-          version: latest
-          # 使用 --snapshot 可以在没有正式 release 的情况下生成产物，或者使用下面默认的 release
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # 这样构建出的镜像永远会带有 latest 标签，方便 CasaOS 拉取
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
