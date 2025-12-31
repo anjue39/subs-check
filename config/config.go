@@ -72,7 +72,7 @@ var GlobalConfig = &Config{
 	NotifyTitle:        "🔔 节点状态更新",
 	MihomoOverwriteUrl: "http://127.0.0.1:8199/sub/ACL4SSR_Online_Full.yaml",
 	MediaCheckTimeout:  10,
-	Platforms:          []string{"openai", "youtube", "netflix", "disney", "gemini", "iprisk"},
+	Platforms:          []string{"openai", "youtube", "netflix", "disney", "grok", "tiktok", "gemini", "iprisk"},
 	DownloadMB:         20,
 	AliveTestUrl:       "http://gstatic.com/generate_204",
 	SubUrlsGetUA:       "clash.meta (https://github.com/beck-8/subs-check)",
