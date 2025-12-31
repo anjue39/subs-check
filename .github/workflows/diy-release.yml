@@ -1,5 +1,4 @@
-name: Release
-
+name: diy-release
 on:
   # 纯手动触发
   workflow_dispatch: 
