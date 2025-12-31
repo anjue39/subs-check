@@ -248,9 +248,17 @@ func (pc *ProxyChecker) checkProxy(proxy map[string]any) *Result {
 				if ok, _ := platform.CheckDisney(mediaClient); ok {
 					res.Disney = true
 				}
-			case "grok":  // 新增
-			    if ok, _ := platform.CheckGrok(httpClient.Client); ok {
+			case "grok":
+			    fmt.Println("正在检测 Grok...") // 强制在控制台输出
+			    ok, err := platform.CheckGrok(httpClient.Client)
+			    if err != nil {
+			        fmt.Printf("Grok 检测报错: %v\n", err)
+			    }
+			    if ok {
+			        fmt.Println("Grok 解锁成功！")
 			        res.Grok = true
+			    } else {
+			        fmt.Println("Grok 未解锁")
 			    }
 			case "gemini":
 				if ok, _ := platform.CheckGemini(mediaClient); ok {
