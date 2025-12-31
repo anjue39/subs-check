@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 1. 动态生成唯一的 Tag (v1.0.序号-日期)
+      # 1. 动态生成唯一的 Tag
       - name: Auto Tag
         id: create_tag
         run: |
@@ -32,7 +32,7 @@ jobs:
         with:
           go-version: stable
 
-      # 2. 运行 GoReleaser 生成全平台二进制产物和 Docker 镜像
+      # 2. 运行 GoReleaser (生成本地二进制版本)
       - name: Release
         uses: goreleaser/goreleaser-action@v5
         with:
@@ -42,11 +42,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. 核心功能：自动清理旧版本，设定保留数量
+      # 3. 核心修复：使用 GitHub 官方 CLI 只保留最近 5 个 Release 和 Tag
       - name: Cleanup Old Releases
-        uses: dev-drpradheep/delete-older-releases@v0.3.0
-        with:
-          keep_latest: 5  # <--- 在这里设定你想保留的版本数量
-          delete_tags: true
+        run: |
+          # 获取所有 release 的列表，跳过前 5 个最新的，删除剩下的
+          gh release list --limit 100 | tail -n +6 | while read -r line; do
+            tag=$(echo "$line" | awk '{print $1}')
+            echo "正在删除旧 Release 和 Tag: $tag"
+            gh release delete "$tag" --yes --cleanup-tag
+          done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
