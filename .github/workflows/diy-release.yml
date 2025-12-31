@@ -1,4 +1,4 @@
-name: Manual Build and Push Docker Image
+name: diy-release
 
 on:
   # 移除 push 触发器，仅保留手动触发
