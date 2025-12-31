@@ -1,43 +1,57 @@
 name: diy-release
+
 on:
-  # 纯手动触发
   workflow_dispatch: 
 
-permissions:
-  contents: write
-  packages: write
-
 jobs:
-  releaser:
+  build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Tag
-        # 修复逻辑：如果当前没有 tag，则自动创建一个默认 tag 防止 goreleaser 报错
+      # 1. 生成版本号 (例如 v1.0.42-20251231)
+      - name: Generate Version Number
+        id: versioning
         run: |
-          git fetch --force --tags
-          if [ -z "$(git tag --points-at HEAD)" ]; then
-            echo "未发现标签，正在创建默认标签 v0.0.1-latest"
-            git config --global user.email "action@github.com"
-            git config --global user.name "GitHub Action"
-            git tag v0.0.1-latest
-            git push origin v0.0.1-latest
-          fi
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: stable
+          DATE=$(date +'%Y%m%d')
+          VERSION="v1.0.${{ github.run_number }}-$DATE"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building Version: $VERSION"
 
-      - name: Release
-        uses: goreleaser/goreleaser-action@v4
+      # 2. 设置多架构支持环境
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          distribution: goreleaser
-          version: latest
-          # 使用 --snapshot 可以在没有正式 release 的情况下生成产物，或者使用下面默认的 release
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 3. 构建并推送 (支持 amd64, arm64, arm/v7)
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          # 按你要求的三个平台进行构建
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ steps.versioning.outputs.VERSION }}
+          # 优化构建缓存，加快下次速度
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 4. 自动清理旧版本，只保留最近 5 个
+      - name: Delete old images
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: 'subs-check'
+          package-type: 'container'
+          min-versions-to-keep: 5
