@@ -1,4 +1,4 @@
-name: Release
+name: diy-release
 
 on:
   # 彻底去掉 push 和 tags 触发，仅保留手动触发
