@@ -1,34 +1,47 @@
-func CheckGrok(client *http.Client) (bool, error) {
-	// 建议直接访问最新的独立域名 grok.com
-	url := "https://grok.com/"
+package platform
 
-	req, err := http.NewRequest("GET", url, nil)
+import (
+	"io"
+	"net/http"
+	"strings"
+)
+
+// CheckGrok checks if Grok AI is available by accessing its main page and looking for region restriction indicators.
+// Returns true if no restriction message is found (available), false otherwise.
+// Similar to CheckGemini, but checks for absence of block messages like in CheckOpenAI.
+func CheckGrok(httpClient *http.Client) (bool, error) {
+	req, err := http.NewRequest("GET", "https://grok.x.ai/", nil)
 	if err != nil {
 		return false, err
 	}
-	
-	// 设置一个更现代的 UA
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 
-	// 直接使用传入的 client 即可，不需要重新创建，保持全局超时一致
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return false, err
 	}
 	defer resp.Body.Close()
 
-	// 判定逻辑：
-	// 1. 200 OK 代表可以直接访问（解锁）
-	// 2. 301/302 重定向到其他页面通常也是解锁（因为未解锁 IP 通常直接给 403）
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusMovedPermanently {
-		// 排除掉明确的失败重定向
-		location := resp.Header.Get("Location")
-		if strings.Contains(location, "unavailable") || strings.Contains(location, "restricted") {
-			return false, nil
-		}
-		return true, nil
+	if resp.StatusCode != http.StatusOK {
+		return false, nil // Non-200 status might indicate block or redirect
 	}
 
-	// 403 Forbidden 明确代表地区封锁
-	return false, nil 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+
+	lowerBody := strings.ToLower(string(body))
+	// Check for common restriction phrases from Grok (based on user reports and searches)
+	if strings.Contains(lowerBody, "not available in your region") ||
+		strings.Contains(lowerBody, "not available in this region") ||
+		strings.Contains(lowerBody, "regional restriction") ||
+		strings.Contains(lowerBody, "unsupported country") {
+		return false, nil
+	}
+
+	// Optional: If you find a positive indicator string (like in Gemini), add it here for confirmation.
+	// For example: if !strings.Contains(lowerBody, "welcome | xai") { return false, nil }
+
+	return true, nil
 }
