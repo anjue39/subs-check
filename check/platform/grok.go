@@ -1,30 +1,51 @@
 package platform
 
 import (
-	"io"
 	"net/http"
 	"strings"
 )
 
-// https://github.com/clash-verge-rev/clash-verge-rev/blob/c894a15d13d5bcce518f8412cc393b56272a9afa/src-tauri/src/cmd/media_unlock_checker.rs#L241
-func CheckGemini(httpClient *http.Client) (bool, error) {
-	req, err := http.NewRequest("GET", "https://gemini.google.com/", nil)
+// CheckGrok 检测 Grok 解锁情况
+func CheckGrok(client *http.Client) (bool, error) {
+	// 1. 创建一个不跟随重定向的自定义 Client，用来捕捉 Location 头部
+	testClient := &http.Client{
+		Transport: client.Transport,
+		Timeout:   client.Timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse // 强制停止重定向
+		},
+	}
+
+	// 2. 访问 Grok 官网
+	req, err := http.NewRequest("GET", "https://grok.com/", nil)
 	if err != nil {
 		return false, err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
-	resp, err := httpClient.Do(req)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36")
+
+	resp, err := testClient.Do(req)
 	if err != nil {
 		return false, err
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false, err
-	}
-	if strings.Contains(string(body), "45631641,null,true") {
+	// 3. 逻辑判定
+	// 如果返回 200 OK，说明直接进入了首页，解锁成功
+	if resp.StatusCode == http.StatusOK {
 		return true, nil
 	}
+
+	// 如果返回 301/302 重定向
+	if resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusMovedPermanently {
+		location := resp.Header.Get("Location")
+		// 如果跳转地址包含 unavailable 或 restricted，说明该地区被封锁
+		if strings.Contains(location, "unavailable") || strings.Contains(location, "restricted") {
+			return false, nil
+		}
+		// 其他跳转（如跳转到 /login）视为解锁成功
+		return true, nil
+	}
+
+	// 403 Forbidden 明确代表封锁
 	return false, nil
 }
