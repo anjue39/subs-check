@@ -320,8 +320,7 @@ func (pc *ProxyChecker) updateProxyName(res *Result, httpClient *ProxyClient, sp
 	}
 
 	if config.GlobalConfig.MediaCheck {
-	    // 关键修正：GK 后面加 \b 确保边界，防止正则误伤
-	    name = regexp.MustCompile(`\s*\|(?:NF|D\+|GPT⁺|GPT|GM|GK\b|YT-[^|]+|TK-[^|]+|\d+%)`).ReplaceAllString(name, "")
+	    name = regexp.MustCompile(`\s*\|(?:NF|D\+|GPT⁺|GPT|GM|X|YT-[^|]+|TK-[^|]+|\d+%)`).ReplaceAllString(name, "")
 	}
 
 	// 按用户输入顺序定义
@@ -343,7 +342,7 @@ func (pc *ProxyChecker) updateProxyName(res *Result, httpClient *ProxyClient, sp
 			}
 		case "grok":  // 新增
 		    if res.Grok {
-		        tags = append(tags, "GK")  // 大写 GK，与 GPT⁺、NF 等风格统一
+		        tags = append(tags, "X")
 		    }
 		case "gemini":
 			if res.Gemini {
