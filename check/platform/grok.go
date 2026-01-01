@@ -6,15 +6,17 @@ import (
 	"strings"
 )
 
-// CheckGrok checks if Grok AI is available by accessing its main page and looking for region restriction indicators.
-// Returns true if no restriction message is found (available), false otherwise.
-// Similar to CheckGemini, but checks for absence of block messages like in CheckOpenAI.
+// CheckGrok 检查 Grok 是否可用
+// 当前逻辑：状态码 200 且页面包含 Grok 正常特征（如 "chat"、"Grok" 或其他核心元素），视为可用
+// 如果有明确限制消息，视为不可用
 func CheckGrok(httpClient *http.Client) (bool, error) {
 	req, err := http.NewRequest("GET", "https://grok.x.ai/", nil)
 	if err != nil {
 		return false, err
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+	// 可选：添加 Accept-Language: en-US 以模拟英文环境
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -23,7 +25,7 @@ func CheckGrok(httpClient *http.Client) (bool, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return false, nil // Non-200 status might indicate block or redirect
+		return false, nil // 非200，很可能被 block 或 redirect 到错误页
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -32,16 +34,22 @@ func CheckGrok(httpClient *http.Client) (bool, error) {
 	}
 
 	lowerBody := strings.ToLower(string(body))
-	// Check for common restriction phrases from Grok (based on user reports and searches)
+
+	// 明确限制短语（当前最常见的）
 	if strings.Contains(lowerBody, "not available in your region") ||
-		strings.Contains(lowerBody, "not available in this region") ||
+		strings.Contains(lowerBody, "this service is not available") ||
 		strings.Contains(lowerBody, "regional restriction") ||
-		strings.Contains(lowerBody, "unsupported country") {
+		strings.Contains(lowerBody, "coming soon") {
 		return false, nil
 	}
 
-	// Optional: If you find a positive indicator string (like in Gemini), add it here for confirmation.
-	// For example: if !strings.Contains(lowerBody, "welcome | xai") { return false, nil }
+	// 正向判断：页面包含 Grok 正常元素（聊天界面特征，根据当前页面调整）
+	if strings.Contains(lowerBody, "grok") &&
+		strings.Contains(lowerBody, "chat") &&
+		(strings.Contains(lowerBody, "xai") || strings.Contains(lowerBody, "ask anything")) {
+		return true, nil
+	}
 
-	return true, nil
+	// 默认保守：有响应但无明确特征，视为不可用（避免误判）
+	return false, nil
 }
