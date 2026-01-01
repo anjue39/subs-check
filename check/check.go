@@ -249,17 +249,18 @@ func (pc *ProxyChecker) checkProxy(proxy map[string]any) *Result {
 					res.Disney = true
 				}
 			case "grok":
-			    fmt.Println("正在检测 Grok...") // 强制在控制台输出
-			    ok, err := platform.CheckGrok(httpClient.Client)
-			    if err != nil {
-			        fmt.Printf("Grok 检测报错: %v\n", err)
-			    }
-			    if ok {
-			        fmt.Println("Grok 解锁成功！")
-			        res.Grok = true
-			    } else {
-			        fmt.Println("Grok 未解锁")
-			    }
+				fmt.Println("正在检测 Grok...")
+				// 建议使用上面定义好的 mediaClient，并确保逻辑块缩进正确
+				ok, err := platform.CheckGrok(mediaClient)
+				if err != nil {
+					fmt.Printf("Grok 检测报错: %v\n", err)
+				}
+				if ok {
+					fmt.Println("Grok 解锁成功！")
+					res.Grok = true
+				} else {
+					fmt.Println("Grok 未解锁")
+				}
 			case "gemini":
 				if ok, _ := platform.CheckGemini(mediaClient); ok {
 					res.Gemini = true
@@ -320,7 +321,8 @@ func (pc *ProxyChecker) updateProxyName(res *Result, httpClient *ProxyClient, sp
 	}
 
 	if config.GlobalConfig.MediaCheck {
-	    name = regexp.MustCompile(`\s*\|(?:NF|D\+|GPT⁺|GPT|GM|X|YT-[^|]+|TK-[^|]+|\d+%)`).ReplaceAllString(name, "")
+		// 确保这里包含了 X
+		name = regexp.MustCompile(`\s*\|(?:NF|D\+|GPT⁺|GPT|GM|X|YT-[^|]+|TK-[^|]+|\d+%)`).ReplaceAllString(name, "")
 	}
 
 	// 按用户输入顺序定义
@@ -340,10 +342,10 @@ func (pc *ProxyChecker) updateProxyName(res *Result, httpClient *ProxyClient, sp
 			if res.Disney {
 				tags = append(tags, "D+")
 			}
-		case "grok":  // 新增
-		    if res.Grok {
-		        tags = append(tags, "X")
-		    }
+		case "grok":
+			if res.Grok {
+				tags = append(tags, "X") // 标志符 X
+			}
 		case "gemini":
 			if res.Gemini {
 				tags = append(tags, "GM")
